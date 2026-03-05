@@ -1,0 +1,880 @@
+<!-- KEVIN 出品 必屬精品 -->
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TYPE//MASTER</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0a0a0f;
+        --surface: #0f0f1a;
+        --border: #1a1a2e;
+        --accent: #00ff88;
+        --accent2: #ff6b35;
+        --accent3: #7b5ea7;
+        --text: #c8d6e5;
+        --muted: #3a4a5c;
+        --correct: #00ff88;
+        --wrong: #ff4757;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Share Tech Mono", monospace;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        position: relative;
+        cursor: default;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(0, 255, 136, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 255, 136, 0.03) 1px, transparent 1px);
+        background-size: 40px 40px;
+        pointer-events: none;
+      }
+
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 0, 0, 0.04) 2px,
+          rgba(0, 0, 0, 0.04) 4px
+        );
+        pointer-events: none;
+        z-index: 99;
+      }
+
+      .container {
+        width: min(900px, 95vw);
+        position: relative;
+        z-index: 1;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 40px;
+        animation: fadeDown 0.6s ease both;
+      }
+
+      .logo {
+        font-family: "Orbitron", sans-serif;
+        font-size: clamp(28px, 5vw, 52px);
+        font-weight: 900;
+        letter-spacing: 8px;
+        color: var(--accent);
+        text-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+        display: inline-block;
+      }
+
+      .logo span {
+        color: var(--accent2);
+      }
+
+      .logo::after {
+        content: "";
+        display: block;
+        height: 2px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--accent),
+          var(--accent2),
+          transparent
+        );
+        margin-top: 6px;
+      }
+
+      .subtitle {
+        font-size: 11px;
+        letter-spacing: 6px;
+        color: #6b8099;
+        text-transform: uppercase;
+        margin-top: 8px;
+      }
+
+      .stats-bar {
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+        margin-bottom: 28px;
+        animation: fadeDown 0.6s 0.1s ease both;
+        opacity: 0;
+        animation-fill-mode: forwards;
+      }
+
+      .stat {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 10px 22px;
+        position: relative;
+        clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+        min-width: 100px;
+      }
+
+      .stat::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: var(--accent);
+        opacity: 0.4;
+      }
+
+      .stat-value {
+        font-family: "Orbitron", sans-serif;
+        font-size: 26px;
+        font-weight: 700;
+        color: var(--accent);
+        text-shadow: 0 0 12px rgba(0, 255, 136, 0.5);
+        line-height: 1;
+      }
+
+      #timer-val {
+        color: var(--accent2);
+        text-shadow: 0 0 12px rgba(255, 107, 53, 0.5);
+      }
+      #acc-val {
+        color: #7eb8f7;
+        text-shadow: 0 0 12px rgba(126, 184, 247, 0.5);
+      }
+
+      .stat-label {
+        font-size: 9px;
+        letter-spacing: 3px;
+        color: #6b8099;
+        text-transform: uppercase;
+        margin-top: 4px;
+      }
+
+      .mode-bar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 20px;
+        justify-content: center;
+        animation: fadeDown 0.6s 0.15s ease both;
+        opacity: 0;
+        animation-fill-mode: forwards;
+      }
+
+      .mode-btn {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: #6b8099;
+        font-family: "Share Tech Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 2px;
+        padding: 6px 16px;
+        cursor: pointer;
+        text-transform: uppercase;
+        transition: all 0.2s;
+        clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
+      }
+
+      .mode-btn:hover,
+      .mode-btn.active {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: rgba(0, 255, 136, 0.05);
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
+      }
+
+      .typing-area {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 32px 36px;
+        position: relative;
+        box-shadow:
+          0 0 40px rgba(0, 0, 0, 0.5),
+          inset 0 1px 0 rgba(0, 255, 136, 0.1);
+      }
+
+      .typing-area::before {
+        content: "> TYPING_INPUT.exe";
+        position: absolute;
+        top: -11px;
+        left: 20px;
+        background: var(--bg);
+        padding: 0 10px;
+        font-size: 10px;
+        color: var(--accent);
+        letter-spacing: 2px;
+      }
+
+      .text-display {
+        font-size: clamp(16px, 2.5vw, 20px);
+        line-height: 2.2;
+        letter-spacing: 1px;
+        user-select: none;
+        min-height: 4.4em;
+        word-break: normal;
+        overflow-wrap: break-word;
+      }
+
+      .word {
+        display: inline-block;
+      }
+      .char {
+        color: #8faabf;
+      }
+      .char.correct {
+        color: var(--correct);
+      }
+      .char.wrong {
+        color: var(--wrong);
+        text-decoration: underline;
+        text-decoration-color: var(--wrong);
+      }
+      .char.pending {
+        color: #8faabf;
+      }
+      .char.current {
+        color: var(--text);
+        position: relative;
+      }
+      .char.current::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        bottom: -1px;
+        width: 100%;
+        height: 2px;
+        background: var(--accent);
+        box-shadow: 0 0 8px var(--accent);
+        animation: blink 0.7s step-end infinite;
+      }
+
+      .char.space-char {
+        min-width: 0.5em;
+        display: inline-block;
+      }
+
+      .progress-wrap {
+        height: 3px;
+        background: var(--border);
+        margin-top: 20px;
+        overflow: hidden;
+      }
+
+      .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent3), var(--accent));
+        width: 0%;
+        transition: width 0.1s;
+        box-shadow: 0 0 8px var(--accent);
+      }
+
+      .click-hint {
+        text-align: center;
+        font-size: 11px;
+        letter-spacing: 3px;
+        color: #6b8099;
+        margin-top: 20px;
+        text-transform: uppercase;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+
+      .controls {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 24px;
+      }
+
+      .btn {
+        font-family: "Orbitron", sans-serif;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        padding: 10px 28px;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s;
+        clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: var(--bg);
+        box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+      }
+      .btn-primary:hover {
+        background: #00ffaa;
+        box-shadow: 0 0 30px rgba(0, 255, 136, 0.7);
+        transform: translateY(-1px);
+      }
+
+      .btn-secondary {
+        background: transparent;
+        color: #6b8099;
+        border: 1px solid var(--border);
+      }
+      .btn-secondary:hover {
+        border-color: var(--accent2);
+        color: var(--accent2);
+      }
+
+      .keyboard-hint {
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+        margin-top: 16px;
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: #6b8099;
+      }
+
+      .key {
+        border: 1px solid var(--border);
+        padding: 2px 8px;
+        background: var(--surface);
+        font-size: 10px;
+      }
+
+      /* Result */
+      .result-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+        backdrop-filter: blur(4px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+
+      .result-overlay.show {
+        opacity: 1;
+        pointer-events: all;
+      }
+
+      .result-card {
+        background: var(--surface);
+        border: 1px solid var(--accent);
+        padding: 48px 60px;
+        text-align: center;
+        box-shadow: 0 0 60px rgba(0, 255, 136, 0.2);
+        max-width: 460px;
+        width: 90vw;
+        clip-path: polygon(16px 0, 100% 0, calc(100% - 16px) 100%, 0 100%);
+        transform: translateY(20px);
+        transition: transform 0.3s;
+      }
+
+      .result-overlay.show .result-card {
+        transform: translateY(0);
+      }
+
+      .result-title {
+        font-family: "Orbitron", sans-serif;
+        font-size: 11px;
+        letter-spacing: 6px;
+        color: #6b8099;
+        margin-bottom: 8px;
+      }
+
+      .result-wpm {
+        font-family: "Orbitron", sans-serif;
+        font-size: 80px;
+        font-weight: 900;
+        color: var(--accent);
+        text-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+        line-height: 1;
+      }
+
+      .result-wpm-label {
+        font-size: 11px;
+        letter-spacing: 4px;
+        color: var(--accent);
+        opacity: 0.7;
+        margin-bottom: 28px;
+      }
+
+      .result-details {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 28px;
+      }
+
+      .result-detail {
+        background: var(--bg);
+        padding: 14px;
+        border: 1px solid var(--border);
+      }
+
+      .result-detail-val {
+        font-family: "Orbitron", sans-serif;
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .result-detail-lbl {
+        font-size: 9px;
+        letter-spacing: 2px;
+        color: #6b8099;
+        text-transform: uppercase;
+        margin-top: 4px;
+      }
+
+      .rank-badge {
+        font-family: "Orbitron", sans-serif;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 4px;
+        padding: 8px 20px;
+        margin-bottom: 24px;
+        display: inline-block;
+      }
+
+      @keyframes fadeDown {
+        from {
+          opacity: 0;
+          transform: translateY(-16px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0;
+        }
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.3;
+        }
+        50% {
+          opacity: 0.9;
+        }
+      }
+      @keyframes shake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-5px);
+        }
+        75% {
+          transform: translateX(5px);
+        }
+      }
+      .shake-active {
+        animation: shake 0.25s ease;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="logo">TYPE<span>//</span>MASTER</div>
+        <div class="subtitle">Terminal Typing Trainer v2.0</div>
+      </header>
+
+      <div class="stats-bar">
+        <div class="stat">
+          <div class="stat-value" id="wpm-val">0</div>
+          <div class="stat-label">WPM</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="timer-val">60</div>
+          <div class="stat-label">SEC</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="acc-val">100%</div>
+          <div class="stat-label">ACC</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="combo-val">0</div>
+          <div class="stat-label">COMBO</div>
+        </div>
+      </div>
+
+      <div class="mode-bar">
+        <button class="mode-btn active" data-mode="60">60s</button>
+        <button class="mode-btn" data-mode="30">30s</button>
+        <button class="mode-btn" data-mode="15">15s</button>
+      </div>
+
+      <div class="typing-area" id="typing-area">
+        <div class="text-display" id="text-display"></div>
+        <div class="progress-wrap">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="click-hint" id="click-hint">[ PRESS ANY KEY TO START ]</div>
+      </div>
+
+      <div class="controls">
+        <button class="btn btn-primary" id="restart-btn">⟳ RESTART</button>
+        <button class="btn btn-secondary" id="newtext-btn">↻ NEW TEXT</button>
+      </div>
+
+      <div class="keyboard-hint">
+        <span><span class="key">TAB</span> restart</span>
+        <span><span class="key">⌫</span> backspace</span>
+        <span><span class="key">ESC</span> reset</span>
+      </div>
+    </div>
+
+    <div class="result-overlay" id="result-overlay">
+      <div class="result-card">
+        <div class="result-title">// RESULT //</div>
+        <div class="result-wpm" id="res-wpm">0</div>
+        <div class="result-wpm-label">WORDS PER MINUTE</div>
+        <div class="rank-badge" id="res-rank"></div>
+        <div class="result-details">
+          <div class="result-detail">
+            <div class="result-detail-val" id="res-acc">0%</div>
+            <div class="result-detail-lbl">Accuracy</div>
+          </div>
+          <div class="result-detail">
+            <div class="result-detail-val" id="res-chars">0</div>
+            <div class="result-detail-lbl">Chars Typed</div>
+          </div>
+          <div class="result-detail">
+            <div class="result-detail-val" id="res-correct">0</div>
+            <div class="result-detail-lbl">Correct</div>
+          </div>
+          <div class="result-detail">
+            <div class="result-detail-val" id="res-errors">0</div>
+            <div class="result-detail-lbl">Errors</div>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="play-again-btn" style="width: 100%">
+          ▶ PLAY AGAIN
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const TEXTS = [
+        "The quick brown fox jumps over the lazy dog near the riverbank.",
+        "Every line of code is a step toward building something meaningful and lasting.",
+        "Good software is built on clean architecture and thoughtful design patterns.",
+        "Typing speed improves with consistent practice and proper finger placement.",
+        "A developer who writes clean code is someone others love to work with.",
+        "Performance optimization requires understanding both the code and the hardware.",
+        "The best debugging tool is a good night sleep and fresh eyes in the morning.",
+        "Open source software thrives on collaboration trust and shared knowledge.",
+        "Consistency and discipline are the foundations of any great skill over time.",
+        "Every bug fixed is a lesson learned and a step toward better engineering.",
+      ];
+      let selectedTime = 60;
+      let currentTime = 60;
+      let timerInterval = null;
+      let started = false;
+      let finished = false;
+      let currentText = "";
+      let currentIndex = 0;
+      let correctCount = 0;
+      let errorCount = 0;
+      let totalTyped = 0;
+      let combo = 0;
+      let charStates = []; // track state per char: 'pending'|'correct'|'wrong'
+      let charCounts = []; // per char: { correct, error, totalTyped }
+
+      function newText() {
+        currentText = TEXTS[Math.floor(Math.random() * TEXTS.length)];
+      }
+
+      function renderText() {
+        charStates = currentText.split("").map(() => "pending");
+        charCounts = currentText
+          .split("")
+          .map(() => ({ correct: 0, error: 0, totalTyped: 0 }));
+        const display = document.getElementById("text-display");
+
+        // Group chars into words so we can wrap each word in inline-block
+        // This prevents mid-word line breaks
+        let html = "";
+        let charIndex = 0;
+        const words = currentText.split(" ");
+        words.forEach((word, wi) => {
+          html += '<span class="word">';
+          for (let ci = 0; ci < word.length; ci++) {
+            const i = charIndex;
+            html += `<span class="char" data-index="${i}" data-state="pending" data-space="0">${word[ci]}</span>`;
+            charIndex++;
+          }
+          html += "</span>";
+          if (wi < words.length - 1) {
+            html += `<span class="char" data-index="${charIndex}" data-state="pending" data-space="1">&nbsp;</span>`;
+            charIndex++;
+          }
+        });
+
+        display.innerHTML = html;
+        const spans = display.querySelectorAll(".char");
+        if (spans[0]) spans[0].dataset.state = "current";
+        updateDisplay();
+      }
+
+      function updateDisplay() {
+        document.querySelectorAll("#text-display .char").forEach((span) => {
+          const state = span.dataset.state;
+          const isSpace = span.dataset.space === "1";
+          span.className =
+            "char" + (isSpace ? " space-char" : "") + " " + state;
+        });
+      }
+
+      function resetStats() {
+        currentIndex = 0;
+        correctCount = 0;
+        errorCount = 0;
+        totalTyped = 0;
+        combo = 0;
+        charStates = [];
+        charCounts = [];
+        started = false;
+        finished = false;
+        clearInterval(timerInterval);
+        timerInterval = null;
+        currentTime = selectedTime;
+        document.getElementById("wpm-val").textContent = "0";
+        document.getElementById("timer-val").textContent = selectedTime;
+        document.getElementById("acc-val").textContent = "100%";
+        document.getElementById("combo-val").textContent = "0";
+        document.getElementById("progress-bar").style.width = "0%";
+        document.getElementById("click-hint").style.display = "block";
+      }
+
+      function resetGame() {
+        resetStats();
+        newText();
+        renderText();
+      }
+
+      function startTimer() {
+        if (timerInterval) return;
+        timerInterval = setInterval(() => {
+          currentTime--;
+          document.getElementById("timer-val").textContent = currentTime;
+          if (currentTime <= 0) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            endGame();
+          }
+        }, 1000);
+      }
+
+      function calcWPM() {
+        const elapsed = selectedTime - currentTime || 1;
+        return Math.round(correctCount / 5 / (elapsed / 60));
+      }
+
+      function calcAcc() {
+        if (totalTyped === 0) return 100;
+        return Math.round((correctCount / totalTyped) * 100);
+      }
+
+      function endGame() {
+        finished = true;
+        const wpm = calcWPM();
+        const acc = calcAcc();
+        document.getElementById("res-wpm").textContent = wpm;
+        document.getElementById("res-acc").textContent = acc + "%";
+        document.getElementById("res-chars").textContent = totalTyped;
+        document.getElementById("res-correct").textContent = correctCount;
+        document.getElementById("res-errors").textContent = errorCount;
+
+        let rank, color;
+        if (wpm >= 100) {
+          rank = "🏆 S RANK — LEGENDARY";
+          color = "#FFD700";
+        } else if (wpm >= 80) {
+          rank = "⚡ A RANK — EXCELLENT";
+          color = "#00ff88";
+        } else if (wpm >= 60) {
+          rank = "✦ B RANK — SKILLED";
+          color = "#7eb8f7";
+        } else if (wpm >= 40) {
+          rank = "◆ C RANK — AVERAGE";
+          color = "#ff6b35";
+        } else {
+          rank = "▲ D RANK — KEEP GOING";
+          color = "#7b5ea7";
+        }
+
+        const rankEl = document.getElementById("res-rank");
+        rankEl.textContent = rank;
+        rankEl.style.color = color;
+        rankEl.style.borderTop = `2px solid ${color}`;
+        rankEl.style.borderBottom = `2px solid ${color}`;
+        document.getElementById("result-overlay").classList.add("show");
+      }
+
+      function closeResult() {
+        document.getElementById("result-overlay").classList.remove("show");
+      }
+
+      function handleKey(key) {
+        if (key === "Tab" || key === "Escape") {
+          closeResult();
+          resetGame();
+          return;
+        }
+        if (
+          document.getElementById("result-overlay").classList.contains("show")
+        )
+          return;
+        if (finished) return;
+
+        const spans = document.querySelectorAll("#text-display .char");
+
+        // --- BACKSPACE ---
+        if (key === "Backspace") {
+          if (currentIndex === 0) return;
+          // Undo current cursor
+          spans[currentIndex] &&
+            (spans[currentIndex].dataset.state = "pending");
+          currentIndex--;
+          // Undo stats of the char we're going back to
+          const prev = charStates[currentIndex];
+          if (prev === "correct") {
+            correctCount--;
+            totalTyped--;
+          }
+          if (prev === "wrong") {
+            errorCount--;
+            totalTyped--;
+          }
+          charStates[currentIndex] = "pending";
+          spans[currentIndex].dataset.state = "current";
+          combo = 0;
+          updateDisplay();
+          document.getElementById("progress-bar").style.width =
+            (currentIndex / currentText.length) * 100 + "%";
+          document.getElementById("wpm-val").textContent = calcWPM();
+          document.getElementById("acc-val").textContent = calcAcc() + "%";
+          document.getElementById("combo-val").textContent = combo;
+          return;
+        }
+
+        if (key.length !== 1) return;
+
+        if (!started) {
+          started = true;
+          document.getElementById("click-hint").style.display = "none";
+          startTimer();
+        }
+
+        const expected = currentText[currentIndex];
+        totalTyped++;
+
+        if (key === expected) {
+          charStates[currentIndex] = "correct";
+          spans[currentIndex].dataset.state = "correct";
+          correctCount++;
+          combo++;
+        } else {
+          charStates[currentIndex] = "wrong";
+          spans[currentIndex].dataset.state = "wrong";
+          errorCount++;
+          combo = 0;
+          const disp = document.getElementById("text-display");
+          disp.classList.remove("shake-active");
+          void disp.offsetWidth;
+          disp.classList.add("shake-active");
+        }
+        updateDisplay();
+
+        currentIndex++;
+        if (spans[currentIndex]) {
+          spans[currentIndex].dataset.state = "current";
+          updateDisplay();
+        }
+
+        document.getElementById("progress-bar").style.width =
+          (currentIndex / currentText.length) * 100 + "%";
+        document.getElementById("wpm-val").textContent = calcWPM();
+        document.getElementById("acc-val").textContent = calcAcc() + "%";
+        document.getElementById("combo-val").textContent = combo;
+
+        if (currentIndex >= currentText.length) {
+          newText();
+          currentIndex = 0;
+          document.getElementById("progress-bar").style.width = "0%";
+          renderText();
+        }
+      }
+
+      // Listen on document AND window for broader capture
+      document.addEventListener("keydown", (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (["Tab", "Escape", "Backspace"].includes(e.key)) e.preventDefault();
+        if (e.key.length === 1) e.preventDefault();
+        handleKey(e.key);
+      });
+
+      // Buttons
+      document
+        .getElementById("restart-btn")
+        .addEventListener("click", resetGame);
+      document.getElementById("newtext-btn").addEventListener("click", () => {
+        newText();
+        resetStats();
+        renderText();
+      });
+      document
+        .getElementById("play-again-btn")
+        .addEventListener("click", () => {
+          closeResult();
+          resetGame();
+        });
+
+      // Mode buttons
+      document.querySelectorAll(".mode-btn[data-mode]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document
+            .querySelectorAll(".mode-btn[data-mode]")
+            .forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          selectedTime = parseInt(btn.dataset.mode);
+          resetGame();
+        });
+      });
+
+      // Init
+      resetGame();
+    </script>
+  </body>
+</html>

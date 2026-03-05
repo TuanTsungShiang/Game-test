@@ -1,0 +1,1313 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DinoRun 8-bit ULTIMATE</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+
+      :root {
+        --gb-darkest: #0f380f;
+        --gb-dark: #306230;
+        --gb-mid: #8bac0f;
+        --gb-light: #9bbc0f;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: var(--gb-darkest);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        font-family: "Press Start 2P", monospace;
+        overflow: hidden;
+      }
+
+      h1 {
+        color: var(--gb-mid);
+        font-size: 13px;
+        letter-spacing: 4px;
+        margin-bottom: 14px;
+        text-shadow: 2px 2px var(--gb-darkest);
+        animation: titlePulse 2s ease-in-out infinite;
+      }
+
+      @keyframes titlePulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.7;
+        }
+      }
+
+      .screen-wrap {
+        position: relative;
+        border: 6px solid var(--gb-dark);
+        box-shadow:
+          0 0 0 4px var(--gb-mid),
+          0 0 60px rgba(139, 172, 15, 0.4),
+          inset 0 0 20px rgba(0, 0, 0, 0.5);
+        border-radius: 4px;
+        transition: box-shadow 0.3s;
+      }
+
+      .screen-wrap.night {
+        box-shadow:
+          0 0 0 4px #4a5568,
+          0 0 60px rgba(100, 120, 200, 0.3),
+          inset 0 0 20px rgba(0, 0, 0, 0.7);
+      }
+
+      canvas {
+        display: block;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+
+      /* CRT scanlines */
+      .screen-wrap::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(
+          to bottom,
+          transparent 0px,
+          transparent 3px,
+          rgba(0, 0, 0, 0.12) 3px,
+          rgba(0, 0, 0, 0.12) 4px
+        );
+        pointer-events: none;
+        border-radius: 2px;
+      }
+
+      /* CRT screen glare */
+      .screen-wrap::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 40%;
+        background: linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0.04),
+          transparent
+        );
+        pointer-events: none;
+        z-index: 1;
+        border-radius: 2px;
+      }
+
+      .hud {
+        display: flex;
+        justify-content: space-between;
+        width: 600px;
+        margin-top: 10px;
+        color: var(--gb-mid);
+        font-size: 8px;
+      }
+
+      .controls {
+        margin-top: 10px;
+        color: var(--gb-dark);
+        font-size: 7px;
+        letter-spacing: 1px;
+        text-align: center;
+      }
+
+      #milestone-banner {
+        position: absolute;
+        top: -40px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--gb-mid);
+        color: var(--gb-darkest);
+        font-family: "Press Start 2P", monospace;
+        font-size: 8px;
+        padding: 6px 14px;
+        border: 3px solid var(--gb-darkest);
+        white-space: nowrap;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>◄ DINO RUN ►</h1>
+
+    <div class="screen-wrap" id="screenWrap">
+      <div id="milestone-banner">🌟 500 POINTS!</div>
+      <canvas id="c" width="600" height="200"></canvas>
+    </div>
+
+    <div class="hud">
+      <span id="scoreDisplay">SCORE: 0</span>
+      <span id="hiDisplay">HI: 0</span>
+    </div>
+    <div class="controls">
+      SPACE / ↑ / TAP = JUMP &nbsp;|&nbsp; 撿★道具才能二段跳 &nbsp;&nbsp;
+      <button
+        id="muteBtn"
+        onclick="toggleMute()"
+        style="
+          font-family: &quot;Press Start 2P&quot;, monospace;
+          font-size: 7px;
+          background: var(--gb-darkest);
+          color: var(--gb-mid);
+          border: 2px solid var(--gb-dark);
+          padding: 4px 8px;
+          cursor: pointer;
+          letter-spacing: 1px;
+          vertical-align: middle;
+        "
+      >
+        ♪ MUSIC: ON
+      </button>
+    </div>
+
+    <script>
+      // ── Audio Engine ─────────────────────────────────────────
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      let audioCtx = null;
+      let masterGain = null;
+      let bgmMuted = false;
+      let bgmPlaying = false;
+      let bgmStepTimeout = null;
+      let bgmStep = 0;
+      let bgmTheme = "day"; // 'day' | 'night'
+
+      // ── 8-bit note frequencies ────────────────────────────────
+      const N = {
+        C3: 131,
+        D3: 147,
+        E3: 165,
+        F3: 175,
+        G3: 196,
+        A3: 220,
+        B3: 247,
+        C4: 262,
+        D4: 294,
+        E4: 330,
+        F4: 349,
+        G4: 392,
+        A4: 440,
+        B4: 494,
+        C5: 523,
+        D5: 587,
+        E5: 659,
+        F5: 698,
+        G5: 784,
+        A5: 880,
+        B5: 988,
+        C6: 1047,
+        __: 0,
+      };
+
+      // Day BGM — upbeat adventurous tune (16 steps × 2 voices)
+      const DAY_MELODY = [
+        N.E5,
+        N.__,
+        N.E5,
+        N.__,
+        N.G5,
+        N.__,
+        N.A5,
+        N.__,
+        N.G5,
+        N.__,
+        N.E5,
+        N.__,
+        N.D5,
+        N.__,
+        N.C5,
+        N.__,
+        N.E5,
+        N.__,
+        N.D5,
+        N.__,
+        N.C5,
+        N.D5,
+        N.E5,
+        N.__,
+        N.G5,
+        N.__,
+        N.G5,
+        N.__,
+        N.E5,
+        N.__,
+        N.__,
+        N.__,
+      ];
+      const DAY_BASS = [
+        N.C3,
+        N.__,
+        N.G3,
+        N.__,
+        N.C3,
+        N.__,
+        N.G3,
+        N.__,
+        N.A3,
+        N.__,
+        N.E3,
+        N.__,
+        N.F3,
+        N.__,
+        N.C3,
+        N.__,
+        N.C3,
+        N.__,
+        N.G3,
+        N.__,
+        N.A3,
+        N.__,
+        N.F3,
+        N.__,
+        N.G3,
+        N.__,
+        N.D3,
+        N.__,
+        N.G3,
+        N.__,
+        N.__,
+        N.__,
+      ];
+
+      // Night BGM — mysterious slower vibe
+      const NIGHT_MELODY = [
+        N.A4,
+        N.__,
+        N.__,
+        N.G4,
+        N.F4,
+        N.__,
+        N.__,
+        N.__,
+        N.E4,
+        N.__,
+        N.__,
+        N.F4,
+        N.G4,
+        N.__,
+        N.__,
+        N.__,
+        N.A4,
+        N.__,
+        N.B4,
+        N.__,
+        N.C5,
+        N.__,
+        N.B4,
+        N.__,
+        N.A4,
+        N.__,
+        N.__,
+        N.__,
+        N.G4,
+        N.__,
+        N.__,
+        N.__,
+      ];
+      const NIGHT_BASS = [
+        N.A2,
+        N.__,
+        N.E3,
+        N.__,
+        N.A2,
+        N.__,
+        N.E3,
+        N.__,
+        N.F2,
+        N.__,
+        N.C3,
+        N.__,
+        N.F2,
+        N.__,
+        N.C3,
+        N.__,
+        N.A2,
+        N.__,
+        N.E3,
+        N.__,
+        N.A2,
+        N.__,
+        N.E3,
+        N.__,
+        N.D3,
+        N.__,
+        N.A2,
+        N.__,
+        N.E3,
+        N.__,
+        N.__,
+        N.__,
+      ];
+
+      // ── N.A2, N.F2, N.D2 definitions ─────────────────────────
+      N.A2 = 110;
+      N.E2 = 82;
+      N.F2 = 87;
+      N.D2 = 73;
+      N.D3 = 147; // already set but ensure
+
+      function ensureAudio() {
+        if (!audioCtx) {
+          audioCtx = new AudioCtx();
+          masterGain = audioCtx.createGain();
+          masterGain.gain.value = bgmMuted ? 0 : 1;
+          masterGain.connect(audioCtx.destination);
+        }
+      }
+
+      function toggleMute() {
+        bgmMuted = !bgmMuted;
+        document.getElementById("muteBtn").textContent = bgmMuted
+          ? "♪ MUSIC: OFF"
+          : "♪ MUSIC: ON";
+        if (masterGain) masterGain.gain.value = bgmMuted ? 0 : 1;
+      }
+
+      // ── One-shot SFX (bypass master for reliability) ─────────
+      function playTone(freq, type, duration, vol = 0.15, startFreq = null) {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination); // direct, not via masterGain
+        osc.type = type;
+        osc.frequency.setValueAtTime(startFreq || freq, audioCtx.currentTime);
+        if (startFreq)
+          osc.frequency.exponentialRampToValueAtTime(
+            freq,
+            audioCtx.currentTime + duration,
+          );
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(
+          0.001,
+          audioCtx.currentTime + duration,
+        );
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + duration);
+      }
+
+      function sfxJump() {
+        ensureAudio();
+        playTone(400, "square", 0.12, 0.12, 200);
+      }
+      function sfxJump2() {
+        ensureAudio();
+        playTone(600, "square", 0.1, 0.1, 300);
+      }
+      function sfxDie() {
+        ensureAudio();
+        playTone(300, "sawtooth", 0.1, 0.15);
+        setTimeout(() => playTone(200, "sawtooth", 0.1, 0.15), 100);
+        setTimeout(() => playTone(100, "sawtooth", 0.15, 0.2), 200);
+      }
+      function sfxMilestone() {
+        ensureAudio();
+        [523, 659, 784, 1047].forEach((f, i) =>
+          setTimeout(() => playTone(f, "square", 0.12, 0.1), i * 80),
+        );
+      }
+      function sfxScore100() {
+        ensureAudio();
+        playTone(880, "square", 0.06, 0.08);
+      }
+      function sfxPickup() {
+        ensureAudio();
+        [523, 659, 784, 1047, 1319].forEach((f, i) =>
+          setTimeout(() => playTone(f, "triangle", 0.08, 0.12), i * 50),
+        );
+      }
+      function sfxInvincible() {
+        ensureAudio();
+        // Big fanfare — rising arpeggio + power chord
+        [262, 330, 392, 523, 659, 784, 1047].forEach((f, i) =>
+          setTimeout(() => playTone(f, "square", 0.15, 0.13), i * 55),
+        );
+      }
+      function sfxSmash() {
+        ensureAudio();
+        playTone(180, "sawtooth", 0.08, 0.14, 400);
+      }
+
+      // ── Power-up sprite (★ small — double jump) ──────────────
+      const STAR_SPRITE = [
+        [0, 0, 1, 0, 0],
+        [1, 1, 1, 1, 1],
+        [0, 1, 1, 1, 0],
+        [1, 0, 1, 0, 1],
+        [0, 0, 1, 0, 0],
+      ];
+
+      // ── Invincible star (bigger, spiky) ──────────────────────
+      const INV_STAR = [
+        [0, 0, 0, 1, 0, 0, 0],
+        [0, 1, 0, 1, 0, 1, 0],
+        [0, 0, 1, 1, 1, 0, 0],
+        [1, 1, 1, 1, 1, 1, 1],
+        [0, 0, 1, 1, 1, 0, 0],
+        [0, 1, 0, 1, 0, 1, 0],
+        [0, 0, 0, 1, 0, 0, 0],
+      ];
+
+      // ── BGM sequencer ─────────────────────────────────────────
+      function bgmNote(freq, vol, wavetype) {
+        if (!audioCtx || !freq) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.type = wavetype;
+        osc.frequency.value = freq;
+        const t = audioCtx.currentTime;
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+        osc.start(t);
+        osc.stop(t + 0.12);
+      }
+
+      function bgmTick() {
+        if (!bgmPlaying) return;
+
+        const melody = bgmTheme === "night" ? NIGHT_MELODY : DAY_MELODY;
+        const bass = bgmTheme === "night" ? NIGHT_BASS : DAY_BASS;
+        const len = melody.length;
+
+        bgmNote(melody[bgmStep % len], 0.08, "square");
+        bgmNote(bass[bgmStep % len], 0.06, "square");
+
+        bgmStep++;
+
+        // BPM: base 200ms per step, speeds up with game speed (injected from game loop)
+        const stepMs = Math.max(80, 200 - (bgmCurrentSpeed - 4) * 10);
+        bgmStepTimeout = setTimeout(bgmTick, stepMs);
+      }
+
+      let bgmCurrentSpeed = 4;
+
+      function bgmStart(theme) {
+        if (!audioCtx) return;
+        bgmPlaying = true;
+        bgmTheme = theme || bgmTheme;
+        bgmStep = 0;
+        clearTimeout(bgmStepTimeout);
+        bgmTick();
+      }
+
+      function bgmStop() {
+        bgmPlaying = false;
+        clearTimeout(bgmStepTimeout);
+      }
+
+      function bgmSetTheme(theme) {
+        if (bgmTheme !== theme) {
+          bgmTheme = theme;
+          bgmStep = 0; // restart sequence on theme change
+        }
+      }
+
+      // ── Canvas & Palette ─────────────────────────────────────
+      const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d");
+
+      // Day / Night palettes
+      const DAY = {
+        bg: "#9bbc0f",
+        light: "#8bac0f",
+        mid: "#306230",
+        dark: "#0f380f",
+      };
+      const NIGHT = {
+        bg: "#0f380f",
+        light: "#306230",
+        mid: "#8bac0f",
+        dark: "#9bbc0f",
+      };
+
+      let C = { ...DAY };
+      let isNight = false;
+      let nightProgress = 0; // 0→1 transition
+
+      // ── Pixel sprites (PX = 4) ───────────────────────────────
+      const PX = 4;
+
+      function drawSprite(sprite, ox, oy, color) {
+        ctx.fillStyle = color || C.dark;
+        for (let r = 0; r < sprite.length; r++) {
+          for (let c2 = 0; c2 < sprite[r].length; c2++) {
+            if (sprite[r][c2]) ctx.fillRect(ox + c2 * PX, oy + r * PX, PX, PX);
+          }
+        }
+      }
+
+      const DINO_RUN1 = [
+        [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0],
+        [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+        [0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1],
+        [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0],
+        [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+        [0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+        [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+        [0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+        [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+      ];
+      const DINO_RUN2 = [
+        [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0],
+        [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+        [0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1],
+        [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0],
+        [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+        [0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+        [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+        [0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+      ];
+      const DINO_JUMP = [
+        [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0],
+        [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+        [0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1],
+        [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0],
+        [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+        [0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+        [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+        [0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      ];
+      const DINO_DEAD = [
+        [0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0],
+        [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+        [0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1],
+        [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0],
+        [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+        [0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+        [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+        [0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      ];
+
+      const CACTUS_A = [
+        [0, 1, 1, 0],
+        [0, 1, 1, 0],
+        [1, 1, 1, 0],
+        [0, 1, 1, 1],
+        [0, 1, 1, 0],
+        [0, 1, 1, 0],
+        [0, 1, 1, 0],
+        [0, 1, 1, 0],
+        [1, 1, 1, 0],
+        [0, 1, 1, 0],
+      ];
+      const CACTUS_B = [
+        [0, 1, 0, 0, 1, 0],
+        [1, 1, 0, 0, 1, 1],
+        [0, 1, 1, 1, 1, 0],
+        [0, 0, 1, 1, 0, 0],
+        [0, 0, 1, 1, 0, 0],
+        [0, 0, 1, 1, 0, 0],
+      ];
+
+      const BIRD1 = [
+        [0, 1, 1, 0, 0, 0, 0, 1],
+        [0, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 0, 0, 0, 0, 0],
+        [0, 1, 0, 0, 0, 0, 0, 0],
+      ];
+      const BIRD2 = [
+        [0, 0, 0, 0, 0, 0, 0, 1],
+        [0, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 0, 0, 0, 0, 0],
+        [0, 0, 1, 1, 0, 0, 0, 0],
+      ];
+
+      // Cloud pixel sprite
+      const CLOUD = [
+        [0, 0, 1, 1, 0, 0],
+        [0, 1, 1, 1, 1, 0],
+        [1, 1, 1, 1, 1, 1],
+        [0, 1, 1, 1, 1, 0],
+      ];
+
+      // Stars (random dots)
+      const STAR = [[1]];
+
+      // Moon
+      const MOON = [
+        [0, 1, 1, 1, 0],
+        [1, 1, 1, 0, 0],
+        [1, 1, 1, 0, 0],
+        [0, 1, 1, 1, 0],
+      ];
+
+      // Sun
+      const SUN = [
+        [0, 1, 1, 1, 0],
+        [1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1],
+        [0, 1, 1, 1, 0],
+      ];
+
+      // ── Particles ────────────────────────────────────────────
+      let particles = [];
+
+      function spawnExplosion(x, y) {
+        for (let i = 0; i < 18; i++) {
+          const angle = (Math.PI * 2 * i) / 18 + Math.random() * 0.3;
+          const speed = 1.5 + Math.random() * 3;
+          particles.push({
+            x: x + 24,
+            y: y + 20,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 1,
+            life: 1,
+            size: Math.random() < 0.5 ? 4 : 8,
+          });
+        }
+      }
+
+      function spawnPickupParticles(x, y) {
+        for (let i = 0; i < 10; i++) {
+          const angle = (Math.PI * 2 * i) / 10;
+          particles.push({
+            x: x + 10,
+            y: y + 10,
+            vx: Math.cos(angle) * 2.5,
+            vy: Math.sin(angle) * 2.5 - 1,
+            life: 1,
+            size: 4,
+            pickup: true,
+          });
+        }
+      }
+
+      // ── Clouds ───────────────────────────────────────────────
+      let clouds = [];
+      for (let i = 0; i < 4; i++) {
+        clouds.push({
+          x: Math.random() * 600,
+          y: 20 + Math.random() * 50,
+          speed: 0.3 + Math.random() * 0.4,
+          scale: 0.8 + Math.random() * 0.8,
+        });
+      }
+
+      // Stars
+      let stars = [];
+      for (let i = 0; i < 40; i++) {
+        stars.push({
+          x: Math.random() * 600,
+          y: Math.random() * 120,
+          size: Math.random() < 0.3 ? 2 : 1,
+        });
+      }
+
+      // ── Ground dots ──────────────────────────────────────────
+      const dots = [];
+      for (let i = 0; i < 30; i++) {
+        dots.push({
+          x: Math.random() * 600,
+          size: Math.random() < 0.5 ? 2 : 4,
+        });
+      }
+
+      // ── Game State ───────────────────────────────────────────
+      const GROUND_Y = 160;
+      const DINO_X = 60;
+      const DINO_H = DINO_RUN1.length * PX;
+      const DINO_W = DINO_RUN1[0].length * PX;
+
+      let state, score, hiScore, speed, frameCount;
+      let dino, obstacles, nextSpawn;
+      let powerups, nextPowerup;
+      let lastMilestone, flashTimer, deathTimer;
+      let milestoneText = "";
+
+      hiScore = parseInt(localStorage.getItem("dinoHi") || "0");
+
+      function init() {
+        state = "idle";
+        score = 0;
+        speed = 4;
+        frameCount = 0;
+        lastMilestone = 0;
+        flashTimer = 0;
+        deathTimer = 0;
+        isNight = false;
+        nightProgress = 0;
+        obstacles = [];
+        particles = [];
+        powerups = [];
+        nextPowerup = 180 + Math.floor(Math.random() * 200);
+        nextSpawn = 90;
+
+        dino = {
+          x: DINO_X,
+          y: GROUND_Y - DINO_H,
+          vy: 0,
+          jumpCount: 0,
+          hasDoubleJump: false,
+          doubleJumpTimer: 0, // frames remaining (600 = 10 sec @ 60fps)
+          invTimer: 0, // invincibility frames (360 = 6 sec)
+          invScale: 1, // current draw scale (lerps to 1.5 when inv)
+          frame: 0,
+          frameTimer: 0,
+          shakeX: 0,
+        };
+
+        updateHUD();
+        document.getElementById("screenWrap").classList.remove("night");
+      }
+
+      // ── Input ────────────────────────────────────────────────
+      function jump() {
+        ensureAudio();
+        if (state === "idle") {
+          state = "running";
+          bgmStart("day");
+          return;
+        }
+        if (state === "dead" && deathTimer > 40) {
+          init();
+          state = "running";
+          bgmStart("day");
+          return;
+        }
+        if (state === "running" && dino.jumpCount < 2) {
+          // 1st jump: always allowed
+          if (dino.jumpCount === 0) {
+            dino.vy = -10;
+            dino.jumpCount++;
+            sfxJump();
+            // 2nd jump: only if timer active
+          } else if (dino.jumpCount === 1 && dino.doubleJumpTimer > 0) {
+            dino.vy = -7.5; // 比一段跳弱，不會飛天
+            dino.jumpCount++;
+            sfxJump2();
+          }
+        }
+      }
+
+      document.addEventListener("keydown", (e) => {
+        if (e.code === "Space" || e.code === "ArrowUp") {
+          e.preventDefault();
+          jump();
+        }
+      });
+      canvas.addEventListener("click", jump);
+      canvas.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        jump();
+      });
+
+      // ── Obstacle factory ─────────────────────────────────────
+      function spawnObstacle() {
+        const r = Math.random();
+        if (r < 0.45) {
+          const h = CACTUS_A.length * PX;
+          obstacles.push({
+            type: "cactus",
+            sprite: CACTUS_A,
+            x: 620,
+            y: GROUND_Y - h,
+            w: CACTUS_A[0].length * PX,
+            h,
+          });
+        } else if (r < 0.75) {
+          const h = CACTUS_B.length * PX;
+          obstacles.push({
+            type: "cactus",
+            sprite: CACTUS_B,
+            x: 620,
+            y: GROUND_Y - h,
+            w: CACTUS_B[0].length * PX,
+            h,
+          });
+        } else {
+          const flyY = Math.random() < 0.5 ? GROUND_Y - 60 : GROUND_Y - 90;
+          obstacles.push({
+            type: "bird",
+            x: 620,
+            y: flyY,
+            w: BIRD1[0].length * PX,
+            h: BIRD1.length * PX,
+            frame: 0,
+            frameTimer: 0,
+          });
+        }
+      }
+
+      // ── Milestone banner ─────────────────────────────────────
+      let bannerTimeout = null;
+      function showBanner(text) {
+        const el = document.getElementById("milestone-banner");
+        el.textContent = text;
+        el.style.opacity = "1";
+        if (bannerTimeout) clearTimeout(bannerTimeout);
+        bannerTimeout = setTimeout(() => (el.style.opacity = "0"), 1800);
+      }
+
+      // ── Update ───────────────────────────────────────────────
+      function update() {
+        // Particles always update
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.2;
+          p.life -= 0.04;
+          if (p.life <= 0) particles.splice(i, 1);
+        }
+
+        if (state === "dead") {
+          deathTimer++;
+          return;
+        }
+        if (state !== "running") return;
+
+        frameCount++;
+        score = Math.floor(frameCount / 6);
+
+        // Day/Night every 500 score
+        const targetNight = Math.floor(score / 500) % 2 === 1;
+        if (targetNight !== isNight) {
+          // Actively transitioning
+          nightProgress = Math.min(1, nightProgress + 0.015);
+          C = targetNight
+            ? lerpPalette(DAY, NIGHT, nightProgress)
+            : lerpPalette(NIGHT, DAY, nightProgress);
+          if (nightProgress >= 1) {
+            nightProgress = 0;
+            isNight = targetNight;
+            C = { ...(isNight ? NIGHT : DAY) }; // lock to final palette
+            document
+              .getElementById("screenWrap")
+              .classList.toggle("night", isNight);
+          }
+        } else {
+          // Stable state — keep palette locked
+          C = { ...(isNight ? NIGHT : DAY) };
+        }
+
+        // Speed
+        speed = Math.min(14, 4 + Math.floor(score / 200) * 0.8);
+        bgmCurrentSpeed = speed; // feed into BGM tempo
+
+        // BGM theme sync with day/night
+        bgmSetTheme(isNight ? "night" : "day");
+
+        // Invincibility timer + scale
+        if (dino.invTimer > 0) {
+          dino.invTimer--;
+          dino.invScale += (1.5 - dino.invScale) * 0.1;
+          if (dino.invTimer === 0) playTone(200, "square", 0.15, 0.1);
+        } else {
+          dino.invScale += (1.0 - dino.invScale) * 0.1;
+        }
+
+        // Double jump timer countdown
+        if (dino.doubleJumpTimer > 0) {
+          dino.doubleJumpTimer--;
+          // Warning beep at 3 seconds left
+          if (dino.doubleJumpTimer === 180) sfxScore100();
+          if (dino.doubleJumpTimer === 0) playTone(200, "square", 0.15, 0.1); // expired SFX
+        }
+
+        // Dino physics
+        dino.vy += 0.55;
+        dino.y += dino.vy;
+        dino.shakeX *= 0.85;
+
+        if (dino.y >= GROUND_Y - DINO_H) {
+          dino.y = GROUND_Y - DINO_H;
+          dino.vy = 0;
+          dino.jumpCount = 0;
+        }
+
+        dino.frameTimer++;
+        if (dino.frameTimer >= 8) {
+          dino.frameTimer = 0;
+          dino.frame = 1 - dino.frame;
+        }
+
+        // Clouds
+        clouds.forEach((cl) => {
+          cl.x -= cl.speed * (state === "running" ? 1 : 0.3);
+          if (cl.x < -60) {
+            cl.x = 620;
+            cl.y = 20 + Math.random() * 50;
+          }
+        });
+
+        // Power-ups
+        nextPowerup--;
+        if (nextPowerup <= 0) {
+          const isInv = Math.random() < 0.35; // 35% chance invincible star
+          if (isInv) {
+            const pw = INV_STAR[0].length * PX;
+            const ph = INV_STAR.length * PX;
+            powerups.push({
+              x: 620,
+              y: GROUND_Y - ph - 4,
+              w: pw,
+              h: ph,
+              bob: 0,
+              type: "inv",
+            });
+          } else {
+            const pw = STAR_SPRITE[0].length * PX;
+            const ph = STAR_SPRITE.length * PX;
+            powerups.push({
+              x: 620,
+              y: GROUND_Y - ph - 4,
+              w: pw,
+              h: ph,
+              bob: 0,
+              type: "dj",
+            });
+          }
+          nextPowerup = 250 + Math.floor(Math.random() * 250);
+        }
+
+        for (let i = powerups.length - 1; i >= 0; i--) {
+          const p = powerups[i];
+          p.x -= speed;
+          p.bob += 0.15;
+          const pad = 2;
+          if (
+            DINO_X + pad < p.x + p.w - pad &&
+            DINO_X + DINO_W - pad > p.x + pad &&
+            dino.y + pad < p.y + p.h + 8 &&
+            dino.y + DINO_H - pad > p.y - 8
+          ) {
+            if (p.type === "inv") {
+              dino.invTimer = 360; // 6 seconds
+              sfxInvincible();
+              showBanner("★ INVINCIBLE! ★");
+            } else {
+              dino.doubleJumpTimer = 600;
+              sfxPickup();
+            }
+            spawnPickupParticles(p.x, p.y);
+            powerups.splice(i, 1);
+            continue;
+          }
+          if (p.x + p.w < -10) powerups.splice(i, 1);
+        }
+
+        // Obstacles
+        nextSpawn--;
+        if (nextSpawn <= 0) {
+          spawnObstacle();
+          nextSpawn =
+            Math.max(50, 120 - Math.floor(speed * 6)) +
+            Math.floor(Math.random() * 40);
+        }
+
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+          const o = obstacles[i];
+          o.x -= dino.invTimer > 0 ? speed * 1.6 : speed;
+          if (o.type === "bird") {
+            o.frameTimer++;
+            if (o.frameTimer >= 12) {
+              o.frameTimer = 0;
+              o.frame = 1 - o.frame;
+            }
+          }
+
+          const pad = 4;
+          const hit =
+            DINO_X + pad < o.x + o.w - pad &&
+            DINO_X + DINO_W - pad > o.x + pad &&
+            dino.y + pad < o.y + o.h - pad &&
+            dino.y + DINO_H - pad > o.y + pad;
+
+          if (hit) {
+            if (dino.invTimer > 0) {
+              // SMASH!
+              spawnExplosion(o.x, o.y);
+              sfxSmash();
+              obstacles.splice(i, 1);
+              score += 10; // bonus points for smashing
+              continue;
+            } else {
+              die();
+              return;
+            }
+          }
+          if (o.x + o.w < -10) obstacles.splice(i, 1);
+        }
+
+        // Score SFX
+        if (score > 0 && score % 100 === 0 && score !== lastMilestone) {
+          sfxScore100();
+          flashTimer = 10;
+        }
+
+        // Milestone every 500
+        if (score > 0 && score % 500 === 0 && score !== lastMilestone) {
+          lastMilestone = score;
+          sfxMilestone();
+          showBanner(`★ ${score} POINTS! ★`);
+          flashTimer = 20;
+        }
+
+        if (flashTimer > 0) flashTimer--;
+
+        updateHUD();
+      }
+
+      function die() {
+        state = "dead";
+        deathTimer = 0;
+        bgmStop();
+        spawnExplosion(dino.x, dino.y);
+        sfxDie();
+        if (score > hiScore) {
+          hiScore = score;
+          localStorage.setItem("dinoHi", hiScore);
+        }
+        updateHUD();
+      }
+
+      function updateHUD() {
+        document.getElementById("scoreDisplay").textContent = "SCORE: " + score;
+        document.getElementById("hiDisplay").textContent = "HI: " + hiScore;
+      }
+
+      // ── Colour interpolation ─────────────────────────────────
+      function lerpColor(a, b, t) {
+        const ar = parseInt(a.slice(1, 3), 16),
+          ag = parseInt(a.slice(3, 5), 16),
+          ab2 = parseInt(a.slice(5, 7), 16);
+        const br = parseInt(b.slice(1, 3), 16),
+          bg = parseInt(b.slice(3, 5), 16),
+          bb = parseInt(b.slice(5, 7), 16);
+        const r = Math.round(ar + (br - ar) * t);
+        const g = Math.round(ag + (bg - ag) * t);
+        const bl = Math.round(ab2 + (bb - ab2) * t);
+        return `rgb(${r},${g},${bl})`;
+      }
+      function lerpPalette(from, to, t) {
+        return {
+          bg: lerpColor(from.bg, to.bg, t),
+          light: lerpColor(from.light, to.light, t),
+          mid: lerpColor(from.mid, to.mid, t),
+          dark: lerpColor(from.dark, to.dark, t),
+        };
+      }
+
+      // ── Draw ─────────────────────────────────────────────────
+      function draw() {
+        // BG
+        ctx.fillStyle = C.bg;
+        ctx.fillRect(0, 0, 600, 200);
+
+        // Stars (night only)
+        if (isNight || nightProgress > 0) {
+          const alpha = isNight
+            ? Math.min(1, nightProgress * 2 + 0.3)
+            : 1 - nightProgress;
+          ctx.fillStyle = `rgba(155,188,15,${alpha * 0.8})`;
+          stars.forEach((s) => ctx.fillRect(s.x, s.y, s.size, s.size));
+          // Moon
+          drawSprite(MOON, 530, 15, `rgba(139,172,15,${alpha})`);
+        }
+
+        // Sun (day only)
+        if (!isNight || nightProgress > 0) {
+          const alpha = isNight ? 1 - nightProgress : Math.min(1, 1);
+          drawSprite(SUN, 530, 12, `rgba(15,56,15,${alpha * 0.6})`);
+        }
+
+        // Clouds
+        clouds.forEach((cl) => {
+          ctx.save();
+          ctx.translate(cl.x, cl.y);
+          ctx.scale(cl.scale, cl.scale);
+          drawSprite(CLOUD, 0, 0, C.mid);
+          ctx.restore();
+        });
+
+        // Ground
+        ctx.fillStyle = C.mid;
+        ctx.fillRect(0, GROUND_Y, 600, 2);
+
+        // Ground dots
+        ctx.fillStyle = C.mid;
+        dots.forEach((d) => {
+          if (state === "running") d.x -= speed * 0.4;
+          if (d.x < -8) d.x = 608 + Math.random() * 40;
+          ctx.fillRect(d.x, GROUND_Y + 4, d.size, 2);
+        });
+
+        // Power-ups (bobbing)
+        powerups.forEach((p) => {
+          const bobY = Math.sin(p.bob) * 3;
+          if (p.type === "inv") {
+            // Spinning invincible star — flashes
+            const spinFlash = Math.floor(Date.now() / 150) % 2 === 0;
+            drawSprite(INV_STAR, p.x, p.y + bobY, spinFlash ? C.dark : C.mid);
+            ctx.strokeStyle = C.dark;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(p.x - 4, p.y + bobY - 4, p.w + 8, p.h + 8);
+          } else {
+            drawSprite(STAR_SPRITE, p.x, p.y + bobY, C.dark);
+            ctx.strokeStyle = C.mid;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(p.x - 3, p.y + bobY - 3, p.w + 6, p.h + 6);
+          }
+        });
+
+        // HUD indicators (top-left in canvas)
+        if (state === "running" || state === "dead") {
+          ctx.font = '6px "Press Start 2P"';
+
+          // Double-jump bar
+          const hasTimer = dino.doubleJumpTimer > 0;
+          const secsLeft = Math.ceil(dino.doubleJumpTimer / 60);
+          const isDJWarn = hasTimer && dino.doubleJumpTimer <= 180;
+          const djFlash = isDJWarn && Math.floor(Date.now() / 200) % 2 === 0;
+          ctx.fillStyle = hasTimer ? (djFlash ? C.bg : C.dark) : C.mid;
+          ctx.fillText(hasTimer ? `2xJUMP:${secsLeft}s` : "2xJUMP:--", 8, 14);
+          if (hasTimer) {
+            const barW = 72;
+            const filled = Math.floor((dino.doubleJumpTimer / 600) * barW);
+            ctx.fillStyle = C.mid;
+            ctx.fillRect(8, 17, barW, 3);
+            ctx.fillStyle = C.dark;
+            ctx.fillRect(8, 17, filled, 3);
+          }
+
+          // Invincible bar
+          const hasInv = dino.invTimer > 0;
+          const invSecs = Math.ceil(dino.invTimer / 60);
+          const invFlash = hasInv && Math.floor(Date.now() / 120) % 2 === 0;
+          ctx.fillStyle = hasInv ? (invFlash ? C.mid : C.dark) : C.mid;
+          ctx.fillText(
+            hasInv ? `INVINCIBLE:${invSecs}s` : "INVINCIBLE:--",
+            8,
+            28,
+          );
+          if (hasInv) {
+            const barW = 90;
+            const filled = Math.floor((dino.invTimer / 360) * barW);
+            ctx.fillStyle = C.mid;
+            ctx.fillRect(8, 31, barW, 3);
+            ctx.fillStyle = C.dark;
+            ctx.fillRect(8, 31, filled, 3);
+          }
+        }
+
+        // Obstacles
+        obstacles.forEach((o) => {
+          if (o.type === "cactus") {
+            drawSprite(o.sprite, o.x, o.y);
+          } else {
+            drawSprite(o.frame === 0 ? BIRD1 : BIRD2, o.x, o.y, C.dark);
+          }
+        });
+
+        // Dino (scaled + inv flash)
+        if (state !== "dead") {
+          const dinoSprite =
+            dino.jumpCount > 0
+              ? DINO_JUMP
+              : dino.frame === 0
+                ? DINO_RUN1
+                : DINO_RUN2;
+          const sc = dino.invScale;
+          const invFlash =
+            dino.invTimer > 0 && Math.floor(Date.now() / 80) % 2 === 0;
+
+          ctx.save();
+          // Scale from dino's bottom-centre
+          const cx = dino.x + DINO_W / 2;
+          const cy = dino.y + DINO_H;
+          ctx.translate(cx, cy);
+          ctx.scale(sc, sc);
+          ctx.translate(-DINO_W / 2, -DINO_H);
+
+          if (dino.invTimer > 0) {
+            // Glow aura
+            ctx.fillStyle = invFlash ? C.mid : C.dark;
+            ctx.fillRect(-4, -4, DINO_W + 8, DINO_H + 8);
+          }
+          drawSprite(dinoSprite, dino.shakeX, 0, invFlash ? C.bg : C.dark);
+          ctx.restore();
+        } else {
+          if (Math.floor(deathTimer / 6) % 2 === 0) {
+            drawSprite(DINO_DEAD, dino.x, dino.y, C.mid);
+          }
+        }
+
+        // Particles
+        particles.forEach((p) => {
+          ctx.globalAlpha = p.life;
+          ctx.fillStyle = p.pickup ? C.dark : p.life > 0.5 ? C.dark : C.mid;
+          ctx.fillRect(p.x, p.y, p.size, p.size);
+        });
+        ctx.globalAlpha = 1;
+
+        // Score flash (white-ish overlay)
+        if (flashTimer > 0) {
+          ctx.fillStyle = `rgba(155,188,15,${flashTimer * 0.025})`;
+          ctx.fillRect(0, 0, 600, 200);
+        }
+
+        // Messages
+        if (state === "idle") {
+          drawMessage("PRESS SPACE TO START");
+          drawSubMessage("★小星=二段跳  ✦大星=無敵衝撞");
+        } else if (state === "dead" && deathTimer > 20) {
+          drawMessage("GAME OVER  [SPACE]");
+          if (score === hiScore && score > 0)
+            drawSubMessage("★ NEW HIGH SCORE ★");
+        }
+      }
+
+      function drawMessage(text) {
+        ctx.font = '8px "Press Start 2P"';
+        const tw = ctx.measureText(text).width;
+        const x = (600 - tw) / 2;
+        const y = 90;
+        ctx.fillStyle = C.bg;
+        ctx.fillRect(x - 12, y - 16, tw + 24, 24);
+        ctx.strokeStyle = C.dark;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - 12, y - 16, tw + 24, 24);
+        ctx.fillStyle = C.dark;
+        ctx.fillText(text, x, y);
+      }
+
+      function drawSubMessage(text) {
+        ctx.font = '6px "Press Start 2P"';
+        const tw = ctx.measureText(text).width;
+        ctx.fillStyle = C.mid;
+        ctx.fillText(text, (600 - tw) / 2, 110);
+      }
+
+      // ── Loop ─────────────────────────────────────────────────
+      function loop() {
+        update();
+        draw();
+        requestAnimationFrame(loop);
+      }
+
+      init();
+      loop();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,2 @@
+Performance optimization requires understanding both the code and the hardware.
+

@@ -1,0 +1,2 @@
+Good software is built on clean architecture and thoughtful design patterns.
+
